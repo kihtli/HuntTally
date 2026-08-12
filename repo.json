@@ -19,9 +19,9 @@
     ],
     "DalamudApiLevel": 15,
     "IconUrl": "https://raw.githubusercontent.com/kihtli/HuntTally/main/images/icon.png",
-    "DownloadLinkInstall": "https://github.com/kihtli/HuntTally/v1.0.0.0.zip",
-    "DownloadLinkUpdate": "https://github.com/kihtli/HuntTally/v1.0.0.0.zip",
-    "DownloadLinkTesting": "https://github.com/kihtli/HuntTally/v1.0.0.0.zip",
+    "DownloadLinkInstall": "https://github.com/kihtli/HuntTally/raw/refs/heads/main/v1.0.0.0.zip",
+    "DownloadLinkUpdate": "https://github.com/kihtli/HuntTally/raw/refs/heads/main/v1.0.0.0.zip",
+    "DownloadLinkTesting": "https://github.com/kihtli/HuntTally/raw/refs/heads/main/v1.0.0.0.zip",
     "IsHide": false,
     "IsTestingExclusive": false,
     "AcceptsFeedback": true
