@@ -4,7 +4,7 @@
     "Name": "Hunt Tally",
     "InternalName": "HuntTally",
     "AssemblyVersion": "1.2.0.0",
-    "TestingAssemblyVersion": "2.0.0.0",
+    "TestingAssemblyVersion": "2.1.0.0",
     "Description": "Keeps a permanent, per-mark count of every hunt mark you get credit for killing, broken down by rank and expansion. Seeds pre-existing totals from your achievements, and keeps counting after the achievement is complete.",
     "Punchline": "Lifetime hunt mark kill counter.",
     "ApplicableVersion": "any",
@@ -23,7 +23,7 @@
     "IconUrl": "https://raw.githubusercontent.com/kihtli/HuntTally/main/images/icon.png",
     "DownloadLinkInstall": "https://github.com/kihtli/HuntTally/raw/refs/heads/main/v1.2.0.0.zip",
     "DownloadLinkUpdate": "https://github.com/kihtli/HuntTally/raw/refs/heads/main/v1.2.0.0.zip",
-    "DownloadLinkTesting": "https://github.com/kihtli/HuntTally/raw/refs/heads/main/v2.0.0.0.zip",
+    "DownloadLinkTesting": "https://github.com/kihtli/HuntTally/raw/refs/heads/main/v2.1.0.0.zip",
     "IsHide": false,
     "IsTestingExclusive": false,
     "AcceptsFeedback": true
