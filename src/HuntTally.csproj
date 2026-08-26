@@ -1,0 +1,29 @@
+<Project Sdk="Dalamud.NET.Sdk/15.0.0">
+
+  <!--
+    The SDK major version tracks the Dalamud API level. Your install reports
+    Dalamud 15.0.3.x, so SDK 15.x is the match; it targets net10.0-windows,
+    which resolves the CS1705 System.Runtime 9 vs 10 conflicts.
+    If 15.0.0 is not published, check the tags at
+    https://github.com/goatcorp/Dalamud.NET.Sdk for the current 15.x release.
+  -->
+
+  <PropertyGroup>
+    <Version>2.2.0.1</Version>
+    <Description>Counts every hunt mark you get credit for killing, forever.</Description>
+    <PackageProjectUrl>https://github.com/kihtli/HuntTally</PackageProjectUrl>
+    <AssemblyName>HuntTally</AssemblyName>
+    <RootNamespace>HuntTally</RootNamespace>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+
+    <!--
+      Required to build a windows-targeted TFM on macOS/Linux. Without it the
+      restore fails with NETSDK1100 ("Windows is required to build"). This pulls
+      the Windows reference packs from NuGet; it does not need Windows itself,
+      because this project is a pure managed class library.
+    -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+  </PropertyGroup>
+
+</Project>

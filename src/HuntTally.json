@@ -1,0 +1,11 @@
+{
+  "Name": "Hunt Tally",
+  "Author": "Kiht",
+  "Punchline": "Lifetime hunt mark kill counter.",
+  "Description": "Keeps a permanent, per-mark count of every hunt mark you get kill credit for, broken down by rank and expansion. Survives achievement completion, since it counts locally rather than reading the achievement. Includes CSV export and manual adjustment so you can seed historical totals.",
+  "InternalName": "HuntTally",
+  "RepoUrl": "https://github.com/kihtli/HuntTally/repo.json",
+  "Tags": ["hunt", "marks", "tracker", "statistics"],
+  "CategoryTags": ["utility"],
+  "AcceptsFeedback": true
+}

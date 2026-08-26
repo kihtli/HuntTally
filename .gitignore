@@ -1,0 +1,10 @@
+# Build output. These embed absolute local paths and must never be committed.
+bin/
+obj/
+
+# macOS / editor cruft
+.DS_Store
+*.user
+*.suo
+.vs/
+.idea/
