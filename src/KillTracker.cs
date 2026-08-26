@@ -5,6 +5,7 @@ using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Game.ClientState.Objects.Enums;
 using Dalamud.Game.ClientState.Objects.SubKinds;
 using Dalamud.Game.ClientState.Objects.Types;
+using FFXIVClientStructs.FFXIV.Client.Game.UI;
 
 namespace HuntTally;
 
@@ -62,6 +63,9 @@ public sealed class KillTracker : IDisposable
         public MarkInfo Info;
         public CharacterProfile Profile = null!;
         public uint Territory;
+
+        /// <summary>Carried for IPC subscribers only; not part of the stored tally.</summary>
+        public uint InstanceId;
         public string World = string.Empty;
         public string? Expansion;
         public DateTime DiedAtUtc;
@@ -96,7 +100,7 @@ public sealed class KillTracker : IDisposable
     /// </summary>
     private bool combatSincePoll;
 
-    public event Action<MarkInfo>? OnKill;
+    public event Action<KillDetail>? OnKill;
 
     /// <summary>Kills declined this session for want of a reward confirmation.</summary>
     public long DroppedUnconfirmed { get; private set; }
@@ -290,6 +294,7 @@ public sealed class KillTracker : IDisposable
                 Info = info,
                 Profile = profile,
                 Territory = territory,
+                InstanceId = ResolveInstanceId(),
                 World = ResolveCurrentWorld(player),
                 Expansion = Categories.ExpansionForTerritory(territory),
                 DiedAtUtc = now,
@@ -360,11 +365,38 @@ public sealed class KillTracker : IDisposable
             candidate.Profile, candidate.Info, candidate.Territory,
             candidate.Expansion, candidate.World, candidate.DiedAt);
 
-        OnKill?.Invoke(candidate.Info);
+        OnKill?.Invoke(new KillDetail(
+            candidate.Info, candidate.Territory, candidate.InstanceId,
+            candidate.Expansion, candidate.World, candidate.DiedAt));
 
         Service.Log.Information(
             $"Counted a kill: {candidate.Info.Name} ({MarkData.RankLabel(candidate.Info.Rank)})"
             + (candidate.Expansion is null ? "." : $", {candidate.Expansion}."));
+    }
+
+    /// <summary>
+    /// The public instance number of the current zone, or 0 when the zone is
+    /// not instanced.
+    ///
+    /// Captured at the moment of the kill rather than read when the event is
+    /// handled: a kill can be held for several seconds waiting on the reward
+    /// confirmation, and the player may have moved instance by then.
+    /// </summary>
+    private static unsafe uint ResolveInstanceId()
+    {
+        try
+        {
+            var ui = UIState.Instance();
+            if (ui is null)
+                return 0;
+
+            return ui->PublicInstance.IsInstancedArea() ? ui->PublicInstance.InstanceId : 0u;
+        }
+        catch (Exception ex)
+        {
+            Service.Log.Warning(ex, "Could not read the public instance number.");
+            return 0;
+        }
     }
 
     private static string ResolveCurrentWorld(IPlayerCharacter player)

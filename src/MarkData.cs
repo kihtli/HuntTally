@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Lumina.Excel.Sheets;
 
@@ -13,6 +14,18 @@ public enum MarkRank : byte
 }
 
 public readonly record struct MarkInfo(uint NameId, string Name, MarkRank Rank);
+
+/// <summary>
+/// A kill the plugin has decided to count, as published to
+/// <see cref="KillTracker.OnKill"/> and over IPC.
+///
+/// Carries the context that cannot be re-derived after the fact: a kill can be
+/// held for up to eight seconds waiting on the game's reward confirmation, by
+/// which time the player may have left the zone, so the territory and the time
+/// of death travel with the event rather than being read when it is handled.
+/// </summary>
+public readonly record struct KillDetail(
+    MarkInfo Mark, uint TerritoryId, uint InstanceId, string? Expansion, string World, DateTime Time);
 
 /// <summary>
 /// Builds a lookup of every hunt mark in the game straight from the

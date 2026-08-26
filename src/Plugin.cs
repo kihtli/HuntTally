@@ -28,6 +28,7 @@ public sealed class Plugin : IDalamudPlugin
     private readonly CharacterContext characters;
     private readonly DamageWatch damage;
     private readonly RewardWatch reward;
+    private readonly IpcProvider ipc;
     private readonly CancellationTokenSource disposal = new();
 
     public Plugin(IDalamudPluginInterface pluginInterface)
@@ -51,6 +52,10 @@ public sealed class Plugin : IDalamudPlugin
 
         configWindow = new ConfigWindow(config, seeder, characters, damage, reward, tracker);
         windowSystem.AddWindow(configWindow);
+        // Subscribed separately from the chat notice: other plugins should be
+        // told about a kill whether or not the user wants it printed.
+        ipc = new IpcProvider();
+        tracker.OnKill += ipc.Publish;
         tracker.OnKill += AnnounceKill;
 
         Service.ClientState.Login += OnLogin;
@@ -66,7 +71,8 @@ public sealed class Plugin : IDalamudPlugin
 
         Service.Commands.AddHandler(CommandName, new CommandInfo(OnCommand)
         {
-            HelpMessage = "Open the hunt tally. Use \"/hunttally config\" for settings.",
+            HelpMessage = "Open the hunt tally. \"/hunttally config\" for settings, "
+                          + "\"/hunttally ipc\" to test the IPC feed.",
         });
 
         Service.Interface.UiBuilder.Draw += windowSystem.Draw;
@@ -79,7 +85,9 @@ public sealed class Plugin : IDalamudPlugin
         disposal.Cancel();
 
         tracker.OnKill -= AnnounceKill;
+        tracker.OnKill -= ipc.Publish;
         tracker.Dispose();
+        ipc.Dispose();
 
         // After the tracker, which reads both on every poll.
         damage.Dispose();
@@ -128,10 +136,12 @@ public sealed class Plugin : IDalamudPlugin
     private void ScheduleSeed() =>
         Service.Framework.RunOnTick(seeder.Start, LoginSeedDelay, 0, disposal.Token);
 
-    private void AnnounceKill(MarkInfo info)
+    private void AnnounceKill(KillDetail kill)
     {
         if (!config.ChatOnKill)
             return;
+
+        var info = kill.Mark;
 
         var profile = characters.Current;
         if (profile is null)
@@ -149,8 +159,12 @@ public sealed class Plugin : IDalamudPlugin
 
     private void OnCommand(string command, string args)
     {
-        if (args.Trim().Equals("config", StringComparison.OrdinalIgnoreCase))
+        var arg = args.Trim();
+
+        if (arg.Equals("config", StringComparison.OrdinalIgnoreCase))
             ToggleConfig();
+        else if (arg.Equals("ipc", StringComparison.OrdinalIgnoreCase))
+            Service.Chat.Print($"[Hunt Tally] {ipc.ToggleEcho()}");
         else
             ToggleMain();
     }
