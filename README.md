@@ -132,6 +132,24 @@ Note the subscriber's generic list carries a trailing `object` for the unused re
 
 Load order does not matter. If Hunt Tally loads later, the subscription simply starts receiving messages once it does; `InvokeFunc` on `ApiVersion` throws `IpcNotReadyError` until then, so check it lazily rather than only once at startup if you want to tolerate Hunt Tally being enabled mid-session.
 
+### What the kill feed contains
+
+`HuntTally.OnKill` has two modes, chosen by the user in settings under **Send every mark death over IPC**:
+
+| Setting | The gate sends | Timing |
+|---|---|---|
+| Off (default) | Only marks you were credited with | After the game confirms the reward — under a second typically, up to eight |
+| On | **Every** mark death observed, credited or not | As soon as the death is seen |
+
+There is one gate, not two. Turning the setting on makes an already-installed consumer receive the wider feed **without any change on its side** — which is the point of doing it this way. The credited feed is suppressed while it is on, so a death produces exactly one message in either mode and no de-duplication is needed.
+
+Two consequences worth designing around:
+
+- **A consumer cannot tell which mode it is receiving.** The setting is off by default so the credited-only contract holds unless a user deliberately changes it, but a plugin that strictly needs "credited" cannot assume it. If that matters, treat the feed as "a mark died, possibly credited" and confirm credit another way.
+- **Both modes respect the plugin's rank filters.** A user who has switched off B ranks in settings emits no B ranks on either.
+
+The tally itself is never affected by this setting — it stays strictly credit-based regardless.
+
 ### Confirming the IPC works
 
 **Registration** — `/xldata` → **Data Share & Call Gate**. Both gates appear in the table:

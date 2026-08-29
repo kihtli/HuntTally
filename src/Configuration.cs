@@ -158,6 +158,24 @@ public class Configuration : IPluginConfiguration
 
     public float MaxDistance { get; set; } = 100f;
     public bool ChatOnKill { get; set; } = true;
+
+    /// <summary>
+    /// Make the IPC kill feed report every mark death rather than only the
+    /// marks you were credited with.
+    ///
+    /// This changes what the existing HuntTally.OnKill gate sends; it does not
+    /// add a second gate, so a consumer receives the wider feed without any
+    /// change on its side. Deaths are sent as they happen rather than after the
+    /// reward confirmation, and the credited feed is suppressed while this is
+    /// on, so a death still produces exactly one message.
+    ///
+    /// Off by default: the credited-only feed is the documented contract, and
+    /// a consumer cannot tell which mode it is being sent. Turning this on
+    /// changes what an already-installed consumer sees.
+    ///
+    /// It never touches the tally, which stays strictly credit-based.
+    /// </summary>
+    public bool PublishAllMarkDeaths { get; set; }
     public bool TrackB { get; set; } = true;
     public bool TrackA { get; set; } = true;
     public bool TrackS { get; set; } = true;

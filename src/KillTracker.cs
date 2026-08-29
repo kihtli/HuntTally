@@ -54,6 +54,14 @@ public sealed class KillTracker : IDisposable
         /// <summary>Scoring decision made - counted or deliberately rejected.</summary>
         public bool Resolved;
 
+        /// <summary>
+        /// The death has been published to the mark-death feed. Separate from
+        /// <see cref="Resolved"/> because that feed fires before any credit
+        /// decision, and the credit decision can stay pending for seconds or
+        /// be retried across several polls.
+        /// </summary>
+        public bool DeathAnnounced;
+
         public DateTime LastSeen;
     }
 
@@ -101,6 +109,16 @@ public sealed class KillTracker : IDisposable
     private bool combatSincePoll;
 
     public event Action<KillDetail>? OnKill;
+
+    /// <summary>
+    /// Every mark death this plugin observes, credited or not, fired as soon as
+    /// the death is seen. <see cref="OnKill"/> is the credited subset and
+    /// arrives later, once the game has confirmed the reward.
+    ///
+    /// Both are raised unconditionally; whoever consumes them decides which one
+    /// matters. Nothing here is affected by the IPC settings.
+    /// </summary>
+    public event Action<KillDetail>? OnMarkDeath;
 
     /// <summary>Kills declined this session for want of a reward confirmation.</summary>
     public long DroppedUnconfirmed { get; private set; }
@@ -259,6 +277,20 @@ public sealed class KillTracker : IDisposable
             // later poll settle it.
             if (!entry.SawAlive)
                 continue;
+
+            // Published before any credit decision and independently of it, so
+            // consumers tracking a train hear about a mark dying even when
+            // somebody else killed it. Guarded by its own flag: the credit path
+            // below can re-enter this block on later polls.
+            if (!entry.DeathAnnounced)
+            {
+                entry.DeathAnnounced = true;
+
+                OnMarkDeath?.Invoke(new KillDetail(
+                    info, territory, ResolveInstanceId(),
+                    Categories.ExpansionForTerritory(territory),
+                    ResolveCurrentWorld(player), DateTime.Now));
+            }
 
             // Combat seen during the interval in which it died counts too. For
             // a mark killed in one hit, the only combat window that ever

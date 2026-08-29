@@ -54,8 +54,9 @@ public sealed class Plugin : IDalamudPlugin
         windowSystem.AddWindow(configWindow);
         // Subscribed separately from the chat notice: other plugins should be
         // told about a kill whether or not the user wants it printed.
-        ipc = new IpcProvider();
-        tracker.OnKill += ipc.Publish;
+        ipc = new IpcProvider(config);
+        tracker.OnKill += ipc.PublishCredited;
+        tracker.OnMarkDeath += ipc.PublishMarkDeath;
         tracker.OnKill += AnnounceKill;
 
         Service.ClientState.Login += OnLogin;
@@ -85,7 +86,8 @@ public sealed class Plugin : IDalamudPlugin
         disposal.Cancel();
 
         tracker.OnKill -= AnnounceKill;
-        tracker.OnKill -= ipc.Publish;
+        tracker.OnKill -= ipc.PublishCredited;
+        tracker.OnMarkDeath -= ipc.PublishMarkDeath;
         tracker.Dispose();
         ipc.Dispose();
 

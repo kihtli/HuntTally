@@ -128,6 +128,23 @@ public sealed class ConfigWindow : Window, IDisposable
             config.ChatOnKill = chat;
             config.MarkChanged();
         }
+
+        var allDeaths = config.PublishAllMarkDeaths;
+        if (ImGui.Checkbox("Send every mark death over IPC", ref allDeaths))
+        {
+            config.PublishAllMarkDeaths = allDeaths;
+            config.MarkChanged();
+        }
+        Tooltip("Changes what the plugin sends to other plugins: every mark death rather than "
+                + "only the ones you were credited with, so a plugin following a hunt train "
+                + "hears about a mark even when somebody else killed it.\n\n"
+                + "It reuses the same feed rather than adding a second one, so a plugin "
+                + "already listening picks this up with no change on its side. Deaths are "
+                + "sent as they happen instead of after the reward confirmation, and the "
+                + "credited feed is switched off while this is on, so nothing arrives twice."
+                + "\n\nOff by default, because a listening plugin cannot tell which of the "
+                + "two it is being sent. Your tally is never affected either way - it stays "
+                + "strictly credit-based.");
     }
 
     /// <summary>

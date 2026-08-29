@@ -4,14 +4,18 @@ using Dalamud.Plugin.Ipc;
 namespace HuntTally;
 
 /// <summary>
-/// Publishes counted kills to other plugins over Dalamud IPC.
+/// Publishes kills to other plugins over Dalamud IPC.
 ///
-/// This is a thin adapter over <see cref="KillTracker.OnKill"/>. It does no
-/// detection of its own: a message goes out exactly when the plugin decides a
-/// kill counts, which is after the mark died, after one of the player's own
-/// actions resolved against it, and - for A and S ranks - after the game
-/// confirmed the reward. Consumers therefore get "you were credited with this
-/// mark", not "a mark near you died".
+/// One event gate, whose contents depend on
+/// <see cref="Configuration.PublishAllMarkDeaths"/>:
+///
+///   off (default) - only marks you were credited with, sent once the game has
+///                   confirmed the reward. This is the documented contract.
+///   on            - every mark death the plugin observes, credited or not,
+///                   sent as soon as the death is seen.
+///
+/// The two are mutually exclusive by construction, so a death produces exactly
+/// one message in either mode and a consumer never has to de-duplicate.
 ///
 /// Payload is primitives only. Each plugin is loaded into its own assembly
 /// context, so a consumer cannot reference HuntTally's own types; anything
@@ -20,22 +24,28 @@ namespace HuntTally;
 public sealed class IpcProvider : IDisposable
 {
     /// <summary>
-    /// Bumped when an existing gate's meaning or signature changes. Consumers
-    /// should read it once and refuse to run against a major they do not know.
-    /// Adding a new gate does not bump it.
+    /// Bumped when an existing gate's signature changes. Consumers should read
+    /// it once and refuse to run against a major they do not know. Note this
+    /// does not describe which mode the kill gate is in - see
+    /// <see cref="Configuration.PublishAllMarkDeaths"/>.
     /// </summary>
     public const int ApiVersion = 1;
 
     private const string ApiVersionGate = "HuntTally.ApiVersion";
     private const string OnKillGate = "HuntTally.OnKill";
 
+    private readonly Configuration config;
+
     private ICallGateProvider<int>? apiVersion;
-    private ICallGateSubscriber<string, uint, int, uint, uint, long, object>? echoSubscriber;
-    private Action<string, uint, int, uint, uint, long>? echoHandler;
     private ICallGateProvider<string, uint, int, uint, uint, long, object>? onKill;
 
-    public IpcProvider()
+    private ICallGateSubscriber<string, uint, int, uint, uint, long, object>? echoSubscriber;
+    private Action<string, uint, int, uint, uint, long>? echoHandler;
+
+    public IpcProvider(Configuration config)
     {
+        this.config = config;
+
         try
         {
             apiVersion = Service.Interface.GetIpcProvider<int>(ApiVersionGate);
@@ -45,7 +55,8 @@ public sealed class IpcProvider : IDisposable
                 .GetIpcProvider<string, uint, int, uint, uint, long, object>(OnKillGate);
 
             Service.Log.Information(
-                $"IPC available: \"{ApiVersionGate}\" and \"{OnKillGate}\" (api {ApiVersion}).");
+                $"IPC available: \"{ApiVersionGate}\" and \"{OnKillGate}\" (api {ApiVersion}). "
+                + $"Kill gate reports {ModeDescription}.");
         }
         catch (Exception ex)
         {
@@ -55,18 +66,42 @@ public sealed class IpcProvider : IDisposable
         }
     }
 
+    /// <summary>Live subscriber count on the kill gate, for diagnostics.</summary>
+    public int SubscriberCount => onKill?.SubscriptionCount ?? 0;
+
+    /// <summary>Whether the self-test echo is currently subscribed.</summary>
+    public bool EchoEnabled => echoHandler is not null;
+
+    private string ModeDescription =>
+        config.PublishAllMarkDeaths ? "every mark death" : "credited kills only";
+
     /// <summary>
-    /// Fans a counted kill out to subscribers.
-    ///
-    /// Never allowed to throw into the tracker: a badly behaved subscriber must
-    /// not be able to stop a kill being recorded, and recording has already
-    /// happened by the time this runs.
+    /// A kill the plugin counted. Suppressed while the all-deaths mode is on,
+    /// because that mode has already sent this death at the moment it happened.
     /// </summary>
-    public void Publish(KillDetail kill)
+    public void PublishCredited(KillDetail kill)
+    {
+        if (!config.PublishAllMarkDeaths)
+            Send(kill);
+    }
+
+    /// <summary>
+    /// Any mark death, credited or not. Sent only while the all-deaths mode is
+    /// on, and it then replaces the credited feed rather than adding to it.
+    /// </summary>
+    public void PublishMarkDeath(KillDetail kill)
+    {
+        if (config.PublishAllMarkDeaths)
+            Send(kill);
+    }
+
+    private void Send(KillDetail kill)
     {
         if (onKill is null)
             return;
 
+        // Never allowed to throw into the tracker: a badly behaved subscriber
+        // must not be able to stop a kill being recorded.
         try
         {
             onKill.SendMessage(
@@ -83,20 +118,14 @@ public sealed class IpcProvider : IDisposable
         }
     }
 
-    /// <summary>Live subscriber count on the kill gate, for diagnostics.</summary>
-    public int SubscriberCount => onKill?.SubscriptionCount ?? 0;
-
-    /// <summary>Whether the self-test echo is currently subscribed.</summary>
-    public bool EchoEnabled => echoHandler is not null;
-
     /// <summary>
     /// Subscribes to this plugin's own gates exactly as another plugin would,
-    /// so a kill can be watched making the full round trip through Dalamud's
+    /// so the feed can be watched making the full round trip through Dalamud's
     /// call gate rather than just proving the gate was registered.
     ///
-    /// Diagnostic only, and off unless asked for. It is a faithful test because
-    /// the payload is primitives: nothing about it depends on the subscriber
-    /// living in the same assembly.
+    /// Diagnostic only. It is a faithful test because the payload is
+    /// primitives: nothing about delivery depends on the subscriber living in
+    /// the same assembly.
     /// </summary>
     public string ToggleEcho()
     {
@@ -135,8 +164,8 @@ public sealed class IpcProvider : IDisposable
             version = $"unreadable ({ex.GetType().Name})";
         }
 
-        return $"IPC echo on. ApiVersion gate returned {version}, "
-               + $"kill gate has {SubscriberCount} subscriber(s). Kills will echo here.";
+        return $"IPC echo on. ApiVersion gate returned {version}, kill gate has "
+               + $"{SubscriberCount} subscriber(s) and reports {ModeDescription}.";
     }
 
     private void OnEcho(
